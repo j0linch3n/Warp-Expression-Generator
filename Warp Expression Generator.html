@@ -1,0 +1,1181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Warp Expression Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* Seismic brand palette — dark interface only */
+  color-scheme: dark;
+  --bg: #171318;          /* brand background */
+  --panel: #171318;
+  --raise: #221e24;       /* input fields / raised controls */
+  --raise-2: #2b262e;
+  --ink: #f4f1ee;
+  --muted: #a8a19c;       /* warm grey body copy */
+  --faint: #6e6770;
+  --line: #2e2931;
+  --accent: #ccff80;      /* lime CTA */
+  --accent-ink: #171318;
+  --accent-soft: rgba(204, 255, 128, .12);
+  --stage: #d4cdc6;       /* warm stone preview panel */
+  --stage-ink: #171318;
+  --dot: #c3bbb3;
+  --danger: #ff5a46;
+  --display: "Bricolage Grotesque", "Arial Black", system-ui, sans-serif;
+  --ui: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+html { scroll-padding-top: env(safe-area-inset-top, 0px); height: 100%; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+  font: 14px/1.4 var(--ui); overflow: auto; -webkit-font-smoothing: antialiased;
+}
+button, select, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 340px; height: 100%; padding: 8px; gap: 8px; }
+.panel { background: var(--panel); border-left: 0; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+.top { padding: 28px 20px 22px; border-bottom: 1px solid var(--line); }
+.blk { padding: 18px 20px 20px; border-bottom: 1px solid var(--line); }
+.blk:last-of-type { border-bottom: 0; }
+.blk h2 { color: var(--muted); font: 600 11px/1.2 var(--ui); letter-spacing: .08em; text-transform: uppercase; margin: 0 0 12px; }
+.foot { margin-top: auto; padding: 16px 20px 20px; position: sticky; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); }
+.foot .row { display: grid; grid-template-columns: 1fr 1fr; }
+.foot .btn { padding: 10px 12px; }
+.foot .toast { margin: 0 0 10px; }
+h1 { font: 600 22px/1.2 var(--ui); color: var(--muted); letter-spacing: 0; margin: 0 0 4px; }
+.lede { margin: 0; color: var(--muted); font-size: 13px; max-width: none; }
+h2 { font: 600 15px/1.2 var(--display); margin: 0 0 12px; letter-spacing: -.005em; }
+section { display: block; }
+
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  border: 1px solid transparent; background: var(--raise); border-radius: 8px;
+  padding: 8px 12px; font-weight: 500; font-size: 13px; transition: border-color .12s, background .12s, filter .12s;
+}
+.btn:hover { background: var(--raise-2); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; letter-spacing: -.01em; }
+.btn.primary:hover { background: var(--accent); filter: brightness(1.06); }
+.btn.quiet { background: transparent; }
+.btn[disabled] { opacity: .45; pointer-events: none; }
+
+.presets { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.preset {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 4px 7px; border: 1px solid transparent; background: var(--raise);
+  border-radius: 10px; font-size: 12px; font-weight: 500; color: var(--muted);
+}
+.preset svg { width: 100%; height: 36px; display: block; color: var(--ink); }
+.preset:hover { background: var(--raise-2); }
+.preset[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.preset[aria-pressed="true"] svg { color: var(--accent); }
+
+.ctl { margin-bottom: 14px; }
+.ctl:last-child { margin-bottom: 0; }
+.ctl label, .ctl .lab { display: flex; justify-content: space-between; align-items: baseline; font-weight: 500; margin-bottom: 2px; }
+.ctl output { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+input[type=range] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 22px; margin: 0;
+  background: transparent; cursor: pointer; --fill: 50%;
+}
+input[type=range]::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 2px;
+  background: linear-gradient(to right, var(--accent) var(--fill), var(--line) var(--fill));
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; margin-top: -6px;
+  background: var(--accent); border: 3px solid var(--bg);
+}
+input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line); }
+input[type=range]::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--accent); }
+input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 3px solid var(--bg); }
+
+[hidden] { display: none !important; }
+select {
+  width: 100%; padding: 8px 10px; border: 1px solid transparent; border-radius: 8px; background: var(--raise);
+}
+.sub { font: 500 13px/1.2 var(--ui); color: var(--muted); margin: 18px 0 10px; }
+.corner { margin-bottom: 6px; }
+.cname { font-weight: 500; font-size: 13px; margin-bottom: 2px; }
+.corner .pair { gap: 14px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 4px; font-weight: 500; margin-bottom: 12px; }
+.field:last-child { margin-bottom: 0; }
+
+details > summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 4px 0; }
+textarea {
+  width: 100%; min-height: 96px; resize: vertical; margin-top: 6px; padding: 8px;
+  border: 1px solid transparent; border-radius: 8px; background: var(--raise);
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.layers { max-height: 150px; overflow: auto; border: 1px solid transparent; border-radius: 8px; background: var(--raise); padding: 4px 0; margin-top: 8px; }
+.layer { display: flex; align-items: center; gap: 8px; padding: 3px 10px; font-size: 13px; cursor: pointer; }
+.layer:hover { background: var(--accent-soft); }
+.layer .sw { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--line); flex: none; }
+.layer span.t { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hint { color: var(--faint); font-size: 12px; margin: 10px 0 0; }
+.toast { font-size: 12.5px; color: var(--muted); min-height: 18px; margin-top: 8px; }
+
+.stagewrap {
+  position: relative; min-width: 0; min-height: 0; height: 100%; background-color: var(--stage); border-radius: 12px; color: var(--stage-ink);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1.2px); background-size: 18px 18px;
+  overflow: hidden;
+}
+#raster { position: absolute; inset: 28px; width: calc(100% - 56px); height: calc(100% - 56px); object-fit: contain; display: block; }
+#stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: hidden; touch-action: none; }
+.bar { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; pointer-events: none; }
+.bar > * { pointer-events: auto; }
+.pill {
+  display: inline-flex; align-items: center; gap: 7px; background: var(--raise); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 13px; font-size: 13px; font-weight: 500; user-select: none;
+}
+.pill input { accent-color: var(--accent); margin: 0; }
+button.pill:hover { border-color: var(--accent); }
+.swatches { display: inline-flex; gap: 6px; padding: 5px 8px; }
+.swatches button { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); padding: 0; }
+.swatches button[aria-pressed="true"] { border-color: var(--accent); }
+.status {
+  position: absolute; left: 12px; bottom: 12px; right: 12px; font-size: 12.5px; color: var(--muted);
+  display: flex; gap: 14px; flex-wrap: wrap; pointer-events: none;
+}
+.status span { background: var(--bg); color: var(--muted); border: 0; border-radius: 6px; padding: 4px 10px; }
+.status .warn { color: var(--danger); }
+.veil {
+  position: absolute; inset: 12px; border: 2px dashed var(--stage-ink); border-radius: 10px; background: rgba(23, 19, 24, .08);
+  display: none; align-items: center; justify-content: center; font: 800 26px var(--display); letter-spacing: -.02em; color: var(--stage-ink);
+  z-index: 5; pointer-events: none;
+}
+.veil.on { display: flex; }
+
+#overlay .h { fill: var(--accent); stroke: var(--stage-ink); stroke-width: 2px; vector-effect: non-scaling-stroke; cursor: grab; touch-action: none; }
+#overlay .h.m { fill: var(--stage-ink); stroke: var(--accent); }
+#overlay .h:hover { stroke-width: 3px; }
+#overlay .ln { fill: none; stroke: var(--stage-ink); stroke-width: 1.25px; opacity: .7; vector-effect: non-scaling-stroke; pointer-events: none; }
+#overlay .rest { fill: none; stroke: var(--stage-ink); stroke-width: 1px; opacity: .22; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; pointer-events: none; }
+
+
+@media (max-width: 820px) {
+  .app { display: flex; flex-direction: column; height: auto; min-height: 100%; padding: 8px; }
+  .stagewrap { height: 52vh; height: 52svh; min-height: 300px; flex: none; }
+  .panel { border-left: 0; overflow: visible; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="stagewrap" id="stageWrap">
+    <canvas id="raster" hidden aria-label="Warp preview"></canvas>
+    <svg id="stage" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" aria-label="Warp preview">
+      <defs>
+        <pattern id="chk" patternUnits="userSpaceOnUse" width="20" height="20">
+          <rect id="chkA" width="20" height="20" fill="#ebe6e1"/>
+          <rect id="chkB" width="10" height="10" fill="#e0d9d2"/>
+          <rect id="chkC" x="10" y="10" width="10" height="10" fill="#e0d9d2"/>
+        </pattern>
+      </defs>
+      <defs id="artDefs"></defs>
+      <rect id="artboard" fill="url(#chk)"/>
+      <g id="art"></g>
+      <rect id="artboardLine" fill="none" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke" opacity=".35" style="color:var(--stage-ink)" pointer-events="none"/>
+      <g id="overlay"></g>
+    </svg>
+    <div class="status" id="status"></div>
+    <div class="veil" id="veil">Drop SVG to load it</div>
+  </main>
+  <aside class="panel">
+    <header class="top">
+      <h1>Warp Expression Generator</h1>
+      <p class="lede">A custom Seismic brand tool for creating expressive warp treatments through perspective distortion and mesh warping.</p>
+    </header>
+
+    <section class="blk">
+      <h2>Artwork</h2>
+      <div class="row">
+        <button class="btn primary" id="pick">Choose SVG</button>
+      </div>
+      <input type="file" id="file" accept=".svg,image/svg+xml" hidden>
+      <p class="hint">Or drop an SVG anywhere on the page. Convert text to outlines before importing.</p>
+    </section>
+
+    <section class="blk">
+      <h2>Warp type</h2>
+      <div class="presets" id="presets"></div>
+      <p class="hint" id="presetNote" hidden>Hourglass is reserved for typographic expression treatments only.</p>
+    </section>
+
+    <section class="blk">
+      <h2>Adjust</h2>
+      <div id="grpMesh">
+      <div class="ctl">
+        <label for="amount">Intensity <output id="amountO">0%</output></label>
+        <input type="range" id="amount" min="0" max="100" step="1" value="0">
+      </div>
+      <div class="ctl">
+        <label for="depth">Depth of field <output id="depthO">0</output></label>
+        <input type="range" id="depth" min="-100" max="100" step="1" value="0">
+      </div>
+      </div>
+      <div id="grpPersp" hidden>
+        <div class="ctl">
+          <label for="rx">Rotation X <output id="rxO">0°</output></label>
+          <input type="range" id="rx" min="-80" max="80" step="1" value="0">
+        </div>
+        <div class="ctl">
+          <label for="ry">Rotation Y <output id="ryO">0°</output></label>
+          <input type="range" id="ry" min="-80" max="80" step="1" value="0">
+        </div>
+        <div class="ctl">
+          <label for="rz">Rotation Z <output id="rzO">0°</output></label>
+          <input type="range" id="rz" min="-180" max="180" step="1" value="0">
+        </div>
+        <div class="ctl">
+          <label for="fov">Field of view <output id="fovO">60°</output></label>
+          <input type="range" id="fov" min="10" max="150" step="1" value="60">
+        </div>
+        <div class="row"><button class="btn" id="resetPersp">Reset Adjustments</button></div>
+        <div id="corners"></div>
+      </div>
+      <div class="ctl" id="grpCompress">
+        <label for="compress">Compress <output id="compressO">0%</output></label>
+        <input type="range" id="compress" min="0" max="100" step="1" value="0">
+      </div>
+    </section>
+
+    <footer class="foot">
+      <div class="toast" id="toast" role="status"></div>
+      <div class="row">
+        <button class="btn" id="copy">Copy SVG Code</button>
+        <button class="btn primary" id="download">Download SVG</button>
+      </div>
+    </footer>
+  </aside>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s) => document.querySelector(s);
+const SVGNS = 'http://www.w3.org/2000/svg';
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+/* ---------- sample artwork ---------- */
+const SAMPLE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180">
+<rect width="320" height="180" rx="14" fill="#171318"/>
+<g fill="#ccff80" transform="translate(22 58)">
+<path d="M0 0H40V12H12V24H40V60H0V48H28V36H0Z"/>
+<path d="M52 0H64V60H52Z"/>
+<path d="M76 0H116V12L90 48H116V60H76V48L102 12H76Z"/>
+<path d="M128 0H168V12H140V24H162V36H140V48H168V60H128Z"/>
+<path d="M190 0H202V60H190Z"/>
+<path d="M214 0H254V12H240V60H228V12H214Z"/>
+<circle cx="272" cy="54" r="6"/>
+</g></svg>`;
+
+/* ---------- state ---------- */
+const state = {
+  fileName: 'artwork', vb: { x: 0, y: 0, w: 320, h: 180 }, items: [], defs: '', notes: [],
+  preset: 'hourglass', amount: 0, depth: 0, compress: 0, rx: 0, ry: 0, corners: [0, 0, 0, 0, 0, 0, 0, 0], rz: 0, fov: 60, angle: 0, cols: 8, rows: 4, seed: 3, detail: 48,
+  fit: 'artwork', image: null, rasterWarp: null, rasterBounds: null, exportFit: 'result', manual: null, showMesh: false, comparing: false,
+  stageBg: 'check', svgOut: '', ctx: null
+};
+
+/* ---------- matrix helpers ---------- */
+const mul = (m, n) => [
+  m[0]*n[0] + m[2]*n[1], m[1]*n[0] + m[3]*n[1],
+  m[0]*n[2] + m[2]*n[3], m[1]*n[2] + m[3]*n[3],
+  m[0]*n[4] + m[2]*n[5] + m[4], m[1]*n[4] + m[3]*n[5] + m[5]
+];
+const app = (m, p) => [m[0]*p[0] + m[2]*p[1] + m[4], m[1]*p[0] + m[3]*p[1] + m[5]];
+
+/* ---------- path parsing: everything becomes lines + cubics ---------- */
+function arcToCubics(x1, y1, rx, ry, phiDeg, fa, fs, x2, y2) {
+  const phi = phiDeg * Math.PI / 180, cp = Math.cos(phi), sp = Math.sin(phi);
+  rx = Math.abs(rx); ry = Math.abs(ry);
+  const dx = (x1 - x2) / 2, dy = (y1 - y2) / 2;
+  const x1p = cp*dx + sp*dy, y1p = -sp*dx + cp*dy;
+  const lam = (x1p*x1p)/(rx*rx) + (y1p*y1p)/(ry*ry);
+  if (lam > 1) { const s = Math.sqrt(lam); rx *= s; ry *= s; }
+  const sign = fa === fs ? -1 : 1;
+  const num = rx*rx*ry*ry - rx*rx*y1p*y1p - ry*ry*x1p*x1p;
+  const den = rx*rx*y1p*y1p + ry*ry*x1p*x1p;
+  const co = den === 0 ? 0 : sign * Math.sqrt(Math.max(0, num / den));
+  const cxp = co * rx * y1p / ry, cyp = -co * ry * x1p / rx;
+  const cx = cp*cxp - sp*cyp + (x1 + x2)/2, cy = sp*cxp + cp*cyp + (y1 + y2)/2;
+  const ang = (ux, uy, vx, vy) => {
+    const a = Math.atan2(ux*vy - uy*vx, ux*vx + uy*vy); return a;
+  };
+  const ux = (x1p - cxp)/rx, uy = (y1p - cyp)/ry, vx = (-x1p - cxp)/rx, vy = (-y1p - cyp)/ry;
+  const th1 = Math.atan2(uy, ux);
+  let dth = ang(ux, uy, vx, vy);
+  if (!fs && dth > 0) dth -= 2*Math.PI;
+  if (fs && dth < 0) dth += 2*Math.PI;
+  const n = Math.max(1, Math.ceil(Math.abs(dth) / (Math.PI/2) - 1e-9));
+  const d = dth / n, t = 4/3 * Math.tan(d/4);
+  const out = [];
+  const pt = (X, Y) => [cx + cp*rx*X - sp*ry*Y, cy + sp*rx*X + cp*ry*Y];
+  for (let k = 0; k < n; k++) {
+    const a1 = th1 + k*d, a2 = a1 + d;
+    const c1 = pt(Math.cos(a1) - t*Math.sin(a1), Math.sin(a1) + t*Math.cos(a1));
+    const c2 = pt(Math.cos(a2) + t*Math.sin(a2), Math.sin(a2) - t*Math.cos(a2));
+    const p = k === n - 1 ? [x2, y2] : pt(Math.cos(a2), Math.sin(a2));
+    out.push([c1[0], c1[1], c2[0], c2[1], p[0], p[1]]);
+  }
+  return out;
+}
+
+function parsePath(d) {
+  const subs = []; let cur = null;
+  let cx = 0, cy = 0, sx = 0, sy = 0, lcx = 0, lcy = 0, lqx = 0, lqy = 0, last = '';
+  let i = 0; const n = d.length;
+  const numRe = /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/y;
+  const ws = () => { while (i < n) { const c = d.charCodeAt(i); if (c === 32 || c === 44 || c === 9 || c === 10 || c === 13 || c === 12) i++; else break; } };
+  const num = () => { ws(); numRe.lastIndex = i; const m = numRe.exec(d); if (!m) return NaN; i = numRe.lastIndex; return parseFloat(m[0]); };
+  const flag = () => { ws(); const c = d[i]; if (c === '0' || c === '1') { i++; return +c; } return NaN; };
+  const begin = (x, y) => { cur = { start: [x, y], segs: [], closed: false }; subs.push(cur); cx = sx = x; cy = sy = y; };
+  const ensure = () => { if (!cur) begin(cx, cy); };
+  const line = (x, y) => { ensure(); cur.segs.push({ t: 'L', p: [x, y] }); cx = x; cy = y; };
+  const cubic = (x1, y1, x2, y2, x, y) => { ensure(); cur.segs.push({ t: 'C', c1: [x1, y1], c2: [x2, y2], p: [x, y] }); lcx = x2; lcy = y2; cx = x; cy = y; };
+  let cmd = null;
+  outer: while (true) {
+    ws(); if (i >= n) break;
+    const ch = d[i];
+    if (/[A-Za-z]/.test(ch)) { cmd = ch; i++; } else if (cmd === null) break;
+    const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase();
+    if (C === 'Z') {
+      if (cur) { if (Math.hypot(cx - sx, cy - sy) > 1e-9) line(sx, sy); cur.closed = true; }
+      cx = sx; cy = sy; cur = null; cmd = null; last = ''; continue;
+    }
+    const ox = rel ? cx : 0, oy = rel ? cy : 0;
+    if (C === 'M') {
+      const x = num(), y = num(); if (isNaN(x + y)) break outer;
+      begin(x + ox, y + oy); cmd = rel ? 'l' : 'L';
+    } else if (C === 'L') {
+      const x = num(), y = num(); if (isNaN(x + y)) break outer; line(x + ox, y + oy);
+    } else if (C === 'H') {
+      const x = num(); if (isNaN(x)) break outer; line(x + ox, cy);
+    } else if (C === 'V') {
+      const y = num(); if (isNaN(y)) break outer; line(cx, y + oy);
+    } else if (C === 'C') {
+      const a = [num(), num(), num(), num(), num(), num()]; if (a.some(isNaN)) break outer;
+      cubic(a[0]+ox, a[1]+oy, a[2]+ox, a[3]+oy, a[4]+ox, a[5]+oy);
+    } else if (C === 'S') {
+      const a = [num(), num(), num(), num()]; if (a.some(isNaN)) break outer;
+      const c1 = last === 'C' ? [2*cx - lcx, 2*cy - lcy] : [cx, cy];
+      cubic(c1[0], c1[1], a[0]+ox, a[1]+oy, a[2]+ox, a[3]+oy);
+    } else if (C === 'Q' || C === 'T') {
+      let qx, qy, x, y;
+      if (C === 'Q') { const a = [num(), num(), num(), num()]; if (a.some(isNaN)) break outer; qx = a[0]+ox; qy = a[1]+oy; x = a[2]+ox; y = a[3]+oy; }
+      else { const a = [num(), num()]; if (a.some(isNaN)) break outer; x = a[0]+ox; y = a[1]+oy; if (last === 'Q') { qx = 2*cx - lqx; qy = 2*cy - lqy; } else { qx = cx; qy = cy; } }
+      cubic(cx + 2/3*(qx - cx), cy + 2/3*(qy - cy), x + 2/3*(qx - x), y + 2/3*(qy - y), x, y);
+      lqx = qx; lqy = qy;
+    } else if (C === 'A') {
+      const rx = num(), ry = num(), ph = num(), fa = flag(), fs = flag(), x = num(), y = num();
+      if ([rx, ry, ph, fa, fs, x, y].some(isNaN)) break outer;
+      const X = x + ox, Y = y + oy;
+      if (rx === 0 || ry === 0) line(X, Y);
+      else for (const c of arcToCubics(cx, cy, rx, ry, ph, fa, fs, X, Y)) cubic(c[0], c[1], c[2], c[3], c[4], c[5]);
+    } else break;
+    last = (C === 'C' || C === 'S') ? 'C' : (C === 'Q' || C === 'T') ? 'Q' : '';
+  }
+  return subs;
+}
+
+const f2 = (el, a, def = 0) => { const v = parseFloat(el.getAttribute(a)); return isNaN(v) ? def : v; };
+function shapeToD(el) {
+  const tag = el.localName;
+  if (tag === 'path') return el.getAttribute('d') || '';
+  if (tag === 'rect') {
+    const x = f2(el, 'x'), y = f2(el, 'y'), w = f2(el, 'width'), h = f2(el, 'height');
+    if (w <= 0 || h <= 0) return '';
+    let rx = el.hasAttribute('rx') ? f2(el, 'rx') : NaN, ry = el.hasAttribute('ry') ? f2(el, 'ry') : NaN;
+    if (isNaN(rx) && isNaN(ry)) rx = ry = 0; else if (isNaN(rx)) rx = ry; else if (isNaN(ry)) ry = rx;
+    rx = clamp(rx, 0, w/2); ry = clamp(ry, 0, h/2);
+    if (!rx || !ry) return `M${x} ${y}H${x+w}V${y+h}H${x}Z`;
+    return `M${x+rx} ${y}H${x+w-rx}A${rx} ${ry} 0 0 1 ${x+w} ${y+ry}V${y+h-ry}A${rx} ${ry} 0 0 1 ${x+w-rx} ${y+h}H${x+rx}A${rx} ${ry} 0 0 1 ${x} ${y+h-ry}V${y+ry}A${rx} ${ry} 0 0 1 ${x+rx} ${y}Z`;
+  }
+  if (tag === 'circle' || tag === 'ellipse') {
+    const cx = f2(el, 'cx'), cy = f2(el, 'cy');
+    const rx = tag === 'circle' ? f2(el, 'r') : f2(el, 'rx'), ry = tag === 'circle' ? rx : f2(el, 'ry');
+    if (rx <= 0 || ry <= 0) return '';
+    return `M${cx+rx} ${cy}A${rx} ${ry} 0 1 1 ${cx-rx} ${cy}A${rx} ${ry} 0 1 1 ${cx+rx} ${cy}Z`;
+  }
+  if (tag === 'line') return `M${f2(el,'x1')} ${f2(el,'y1')}L${f2(el,'x2')} ${f2(el,'y2')}`;
+  if (tag === 'polyline' || tag === 'polygon') {
+    const nums = (el.getAttribute('points') || '').match(/[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/g);
+    if (!nums || nums.length < 4) return '';
+    let s = 'M' + nums[0] + ' ' + nums[1];
+    for (let k = 2; k + 1 < nums.length; k += 2) s += 'L' + nums[k] + ' ' + nums[k+1];
+    return s + (tag === 'polygon' ? 'Z' : '');
+  }
+  return '';
+}
+
+/* ---------- loading an SVG ---------- */
+const host = document.createElement('div');
+host.style.cssText = 'position:absolute;left:-99999px;top:0;width:0;height:0;overflow:hidden';
+document.body.appendChild(host);
+const shadow = host.attachShadow({ mode: 'open' });
+
+function parseSvgText(text) {
+  text = text.replace(/^\uFEFF/, '');
+  if (!/<svg[^>]*\sxmlns\s*=/i.test(text)) text = text.replace(/<svg/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+  let doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+  if (doc.querySelector('parsererror') && !/xmlns:xlink/.test(text)) {
+    doc = new DOMParser().parseFromString(text.replace(/<svg/i, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"'), 'image/svg+xml');
+  }
+  if (doc.querySelector('parsererror') || !doc.documentElement || doc.documentElement.localName !== 'svg') throw new Error('That does not look like valid SVG.');
+  return doc.documentElement;
+}
+
+function captureStyle(el, scale) {
+  const cs = getComputedStyle(el);
+  const a = [];
+  const fill = cs.fill || 'none', stroke = cs.stroke || 'none';
+  a.push(['fill', fill]);
+  if (fill !== 'none') {
+    if (parseFloat(cs.fillOpacity) !== 1) a.push(['fill-opacity', cs.fillOpacity]);
+    if (cs.fillRule === 'evenodd') a.push(['fill-rule', 'evenodd']);
+  }
+  let strokeHalf = 0;
+  if (stroke !== 'none') {
+    const sw = (parseFloat(cs.strokeWidth) || 1) * scale;
+    strokeHalf = sw / 2;
+    a.push(['stroke', stroke], ['stroke-width', +sw.toFixed(4)]);
+    if (parseFloat(cs.strokeOpacity) !== 1) a.push(['stroke-opacity', cs.strokeOpacity]);
+    if (cs.strokeLinecap !== 'butt') a.push(['stroke-linecap', cs.strokeLinecap]);
+    if (cs.strokeLinejoin !== 'miter') a.push(['stroke-linejoin', cs.strokeLinejoin]);
+    if (parseFloat(cs.strokeMiterlimit) !== 4) a.push(['stroke-miterlimit', cs.strokeMiterlimit]);
+    if (cs.strokeDasharray && cs.strokeDasharray !== 'none') {
+      a.push(['stroke-dasharray', cs.strokeDasharray.split(/[ ,]+/).map((v) => +(parseFloat(v) * scale).toFixed(3)).join(' ')]);
+      const off = parseFloat(cs.strokeDashoffset) * scale; if (off) a.push(['stroke-dashoffset', +off.toFixed(3)]);
+    }
+  }
+  return { a, strokeHalf, fill, stroke };
+}
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+
+function loadSvgText(text, name) {
+  const root = parseSvgText(text);
+  root.querySelectorAll('script,foreignObject').forEach((n) => n.remove());
+  root.querySelectorAll('*').forEach((n) => { [...n.attributes].forEach((at) => { if (/^on/i.test(at.name)) n.removeAttribute(at.name); }); });
+  const imported = document.importNode(root, true);
+  shadow.replaceChildren(imported);
+  const sroot = imported;
+
+  let vb = null;
+  const bv = sroot.viewBox && sroot.viewBox.baseVal;
+  if (bv && bv.width > 0 && bv.height > 0) vb = { x: bv.x, y: bv.y, w: bv.width, h: bv.height };
+  else { const w = parseFloat(sroot.getAttribute('width')), h = parseFloat(sroot.getAttribute('height')); if (w > 0 && h > 0) vb = { x: 0, y: 0, w, h }; }
+
+  const skipSel = 'defs,clipPath,mask,pattern,marker,symbol,linearGradient,radialGradient,filter,title,desc';
+  const items = []; const notes = [];
+  const SHAPES = 'path,rect,circle,ellipse,line,polyline,polygon';
+  // Accumulated transform + opacity from el up to (not including) stop.
+  const accum = (el, stop) => {
+    let M = [1, 0, 0, 1, 0, 0], op = 1, hidden = false;
+    for (let n = el; n && n !== stop; n = n.parentNode) {
+      if (n.nodeType !== 1) continue;
+      const cs = getComputedStyle(n);
+      if (cs.display === 'none') hidden = true;
+      const o = parseFloat(cs.opacity); if (!isNaN(o)) op *= o;
+      if (n.transform && n.transform.baseVal && n.transform.baseVal.numberOfItems) {
+        const c = n.transform.baseVal.consolidate();
+        if (c) { const m = c.matrix; M = mul([m.a, m.b, m.c, m.d, m.e, m.f], M); }
+      }
+    }
+    return { M, op, hidden };
+  };
+  const toSubs = (el, M) => parsePath(shapeToD(el)).filter((s) => s.segs.length).map((s) => ({
+    start: app(M, s.start), closed: s.closed,
+    segs: s.segs.map((g) => g.t === 'L' ? { t: 'L', p: app(M, g.p) } : { t: 'C', c1: app(M, g.c1), c2: app(M, g.c2), p: app(M, g.p) })
+  }));
+  const refId = (n, attr, prop) => {
+    const v = n.getAttribute(attr) || (n.style && n.style.getPropertyValue(prop)) || '';
+    const m = /url\(\s*["']?#([^"')\s]+)["']?\s*\)/.exec(v); return m ? m[1] : null;
+  };
+  // Clip paths and masks: their geometry is flattened to absolute coordinates so it can be warped with the art.
+  const wrappers = [], wrapCache = new Map(); let unresolved = 0;
+  const getWrapper = (n, kind, id) => {
+    const key = kind + '|' + id; let per = wrapCache.get(n); if (!per) { per = {}; wrapCache.set(n, per); }
+    if (key in per) return per[key];
+    const target = sroot.querySelector('#' + CSS.escape(id));
+    if (!target || target.localName !== (kind === 'clip' ? 'clipPath' : 'mask')) { unresolved++; return (per[key] = null); }
+    let MR = accum(n, sroot).M;
+    const bboxUnits = kind === 'clip' ? target.getAttribute('clipPathUnits') === 'objectBoundingBox' : target.getAttribute('maskContentUnits') === 'objectBoundingBox';
+    if (bboxUnits) { try { const b = n.getBBox(); MR = mul(MR, [b.width, 0, 0, b.height, b.x, b.y]); } catch (e) { /* keep user space */ } }
+    if (target.transform && target.transform.baseVal && target.transform.baseVal.numberOfItems) {
+      const c = target.transform.baseVal.consolidate(); if (c) { const m = c.matrix; MR = mul(MR, [m.a, m.b, m.c, m.d, m.e, m.f]); }
+    }
+    const parts = [];
+    target.querySelectorAll(SHAPES).forEach((el) => {
+      const a = accum(el, target); if (a.hidden) return;
+      const M = mul(MR, a.M), subs = toSubs(el, M); if (!subs.length) return;
+      const cs = getComputedStyle(el);
+      if (kind === 'clip') {
+        parts.push({ subs, attrs: cs.clipRule === 'evenodd' ? ' clip-rule="evenodd"' : '' });
+      } else {
+        const scale = Math.sqrt(Math.abs(M[0]*M[3] - M[1]*M[2])) || 1, st = captureStyle(el, scale);
+        if (st.fill === 'none' && st.stroke === 'none') return;
+        if (a.op !== 1) st.a.push(['opacity', +a.op.toFixed(4)]);
+        parts.push({ subs, attrs: st.a.map(([k, v]) => ` ${k}="${esc(v)}"`).join(''), strokeHalf: st.strokeHalf });
+      }
+    });
+    const w = { kind, id: (kind === 'clip' ? 'wxc' : 'wxm') + wrappers.length, parts,
+      alpha: kind === 'mask' && (target.getAttribute('mask-type') === 'alpha' || getComputedStyle(target).maskType === 'alpha') };
+    wrappers.push(w); return (per[key] = w);
+  };
+  const shapes = sroot.querySelectorAll('path,rect,circle,ellipse,line,polyline,polygon');
+  shapes.forEach((el) => {
+    if (el.closest(skipSel)) return;
+    let M = [1, 0, 0, 1, 0, 0], hidden = false, op = 1;
+    for (let n = el; n && n !== sroot; n = n.parentNode) {
+      if (n.nodeType !== 1) continue;
+      const cs = getComputedStyle(n);
+      if (cs.display === 'none') { hidden = true; break; }
+      const o = parseFloat(cs.opacity); if (!isNaN(o)) op *= o;
+      if (n.transform && n.transform.baseVal && n.transform.baseVal.numberOfItems) {
+        const c = n.transform.baseVal.consolidate();
+        if (c) { const m = c.matrix; M = mul([m.a, m.b, m.c, m.d, m.e, m.f], M); }
+      }
+    }
+    if (hidden) return;
+    const chain = [];
+    for (let n = el; n && n !== sroot; n = n.parentNode) {
+      if (n.nodeType !== 1) continue;
+      const c = refId(n, 'clip-path', 'clip-path'), m = refId(n, 'mask', 'mask');
+      if (m) { const w = getWrapper(n, 'mask', m); if (w) chain.push(w); }
+      if (c) { const w = getWrapper(n, 'clip', c); if (w) chain.push(w); }
+    }
+    chain.reverse();
+    const subs0 = parsePath(shapeToD(el)).filter((s) => s.segs.length);
+    if (!subs0.length) return;
+    const subs = subs0.map((s) => ({
+      start: app(M, s.start), closed: s.closed,
+      segs: s.segs.map((g) => g.t === 'L' ? { t: 'L', p: app(M, g.p) } : { t: 'C', c1: app(M, g.c1), c2: app(M, g.c2), p: app(M, g.p) })
+    }));
+    const scale = Math.sqrt(Math.abs(M[0]*M[3] - M[1]*M[2])) || 1;
+    const st = captureStyle(el, scale);
+    if (st.fill === 'none' && st.stroke === 'none') return;
+    if (op !== 1) st.a.push(['opacity', +op.toFixed(4)]);
+    const bb = newBB();
+    subs.forEach((s) => { bb.add(s.start); s.segs.forEach((g) => { bb.add(g.p); if (g.t === 'C') { bb.add(g.c1); bb.add(g.c2); } }); });
+    items.push({
+      tag: el.localName, subs, bb, warp: true, strokeHalf: st.strokeHalf, chain,
+      attrs: st.a.map(([k, v]) => ` ${k}="${esc(v)}"`).join(''), fill: st.fill
+    });
+  });
+  if (!items.length) throw new Error('No paths or shapes were found in that SVG.');
+
+  if (!vb) {
+    const all = newBB(); items.forEach((it) => { all.add([it.bb.x0, it.bb.y0]); all.add([it.bb.x1, it.bb.y1]); });
+    vb = { x: all.x0, y: all.y0, w: Math.max(1, all.x1 - all.x0), h: Math.max(1, all.y1 - all.y0) };
+  }
+  // Every shape warps, including full-size backgrounds.
+  items.forEach((it, k) => { it.id = k; });
+
+  const nText = sroot.querySelectorAll('text').length, nUse = sroot.querySelectorAll('use').length, nImg = sroot.querySelectorAll('image').length;
+  if (nText) notes.push(`${nText} text element${nText > 1 ? 's' : ''} skipped. Convert text to outlines first.`);
+  if (nUse) notes.push(`${nUse} <use> reference${nUse > 1 ? 's' : ''} skipped.`);
+  if (nImg) notes.push(`${nImg} embedded image${nImg > 1 ? 's' : ''} skipped.`);
+  if (unresolved) notes.push(`${unresolved} clip path or mask reference${unresolved > 1 ? 's' : ''} could not be found.`);
+  const ser = new XMLSerializer();
+  const defs = [...sroot.querySelectorAll('linearGradient,radialGradient')].map((g) => ser.serializeToString(g)).join('');
+
+  state.image = null; state.items = items; state.vb = vb; state.notes = notes; state.defs = defs; state.wrappers = wrappers;
+  state.fileName = (name || 'artwork').replace(/\.svg$/i, '');
+  state.manual = null;
+  setupStageView();
+  render();
+}
+
+function newBB() {
+  return { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity, add(p) {
+    if (p[0] < this.x0) this.x0 = p[0]; if (p[0] > this.x1) this.x1 = p[0];
+    if (p[1] < this.y0) this.y0 = p[1]; if (p[1] > this.y1) this.y1 = p[1];
+  } };
+}
+
+/* ---------- presets (displacement fields) ---------- */
+function rnd(seed, i, j, k) {
+  let h = (seed * 374761393 + i * 668265263 + j * 2147483647 + k * 1274126177) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
+  return (h >>> 0) / 4294967295;
+}
+const radial = (U, V, W, H) => {
+  const x = (U - .5) * W, y = (V - .5) * H, R = Math.hypot(W, H) / 2;
+  return { x, y, r: Math.min(1, Math.hypot(x, y) / R) };
+};
+const CORNER_TILT = 0.1; // pulling a corner nudges the corner across from it inward by this fraction
+function cornerPin(b, c0) {
+  if (!c0 || c0.every((v) => !v)) return null;
+  const s = CORNER_TILT, c = c0.slice();
+  c[0] = c0[0] + s * c0[2]; c[2] = c0[2] + s * c0[0];   // top edge: TL <-> TR
+  c[6] = c0[6] + s * c0[4]; c[4] = c0[4] + s * c0[6];   // bottom edge: BL <-> BR
+  const P = [[b.x + c[0] * b.w / 100, b.y + c[1] * b.h / 100], [b.x + b.w + c[2] * b.w / 100, b.y + c[3] * b.h / 100],
+             [b.x + b.w + c[4] * b.w / 100, b.y + b.h + c[5] * b.h / 100], [b.x + c[6] * b.w / 100, b.y + b.h + c[7] * b.h / 100]];
+  const [x0, y0] = P[0], [x1, y1] = P[1], [x2, y2] = P[2], [x3, y3] = P[3];
+  const dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
+  let g = 0, h = 0;
+  const den = dx1 * dy2 - dy1 * dx2;
+  if ((dx3 || dy3) && Math.abs(den) > 1e-9) { g = (dx3 * dy2 - dy3 * dx2) / den; h = (dx1 * dy3 - dy1 * dx3) / den; }
+  const A = x1 - x0 + g * x1, B = x3 - x0 + h * x3, D = y1 - y0 + g * y1, E = y3 - y0 + h * y3;
+  const bw = Math.max(b.w, 1e-6), bh = Math.max(b.h, 1e-6);
+  return (x, y) => {
+    const u = (x - b.x) / bw, v = (y - b.y) / bh, w = g * u + h * v + 1;
+    return [(A * u + B * v + x0) / w, (D * u + E * v + y0) / w];
+  };
+}
+function projector(b, rx, ry, rz, fovDeg, corners) {
+  const pin = cornerPin(b, corners);
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+  const L = Math.max(b.w, b.h, 1e-6);
+  const d = (L / 2) / Math.tan(clamp(fovDeg, 5, 170) * Math.PI / 360);
+  const a = rx * Math.PI / 180, bb = ry * Math.PI / 180, g = rz * Math.PI / 180;
+  const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(bb), sb = Math.sin(bb), cg = Math.cos(g), sg = Math.sin(g);
+  return (x, y) => {
+    if (pin) { const q = pin(x, y); x = q[0]; y = q[1]; }
+    let px = x - cx, py = y - cy, pz = 0;
+    let t = px * cg - py * sg; py = px * sg + py * cg; px = t;            // Z
+    t = px * cb + pz * sb; pz = -px * sb + pz * cb; px = t;                // Y
+    t = py * ca + pz * sa; pz = -py * sa + pz * ca; py = t;                // X
+    const sc = d / Math.max(d * .08, d - pz);
+    return [cx + px * sc, cy + py * sc];
+  };
+}
+const PRESETS = {
+  hourglass: { label: 'Hourglass', cols: 12, rows: 4, f: (U, V, W, H, c) => {
+    const d = c.depth, e = Math.max(d, 0), k = .42 + (1 + .5*e) * Math.pow(Math.abs(2*U - 1), 1.5 + 2*e);
+    return [(U - .5) * W * (Math.pow(k, d) - 1), (V - .5) * H * (Math.pow(k, d < 0 ? 1 - .5*d : 1 + .3*d) - 1)]; } },
+  perspective: { label: 'Perspective', cols: 1, rows: 1, custom: true, f: (U, V, W, H) => {
+    const pr = projector({ x: 0, y: 0, w: W, h: H }, -35, 0, 0, 60), p = pr(U * W, V * H); return [p[0] - U * W, p[1] - V * H]; } }
+};
+
+function computeBase(b) {
+  const { cols, rows, angle, preset, seed } = state;
+  const th = angle * Math.PI / 180, co = Math.cos(th), si = Math.sin(th);
+  const bw = Math.max(b.w, 1e-6), bh = Math.max(b.h, 1e-6);
+  const Wr = Math.abs(co) * bw + Math.abs(si) * bh, Hr = Math.abs(si) * bw + Math.abs(co) * bh;
+  const cx = b.x + bw / 2, cy = b.y + bh / 2;
+  const out = new Float64Array((cols + 1) * (rows + 1) * 2);
+  const f = PRESETS[preset].f;
+  for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) {
+    const a = b.x + bw * i / cols - cx, c = b.y + bh * j / rows - cy;
+    const ar = a * co + c * si, br = -a * si + c * co;
+    const d = f(ar / Wr + .5, br / Hr + .5, Wr, Hr, { seed, i, j, depth: state.depth >= 0 ? -state.depth / 500 : -state.depth / 200 });
+    const k = (j * (cols + 1) + i) * 2;
+    out[k] = d[0] * co - d[1] * si; out[k + 1] = d[0] * si + d[1] * co;
+  }
+  return out;
+}
+
+/* ---------- warp: bicubic (Catmull-Rom) interpolation of node displacements ---------- */
+function makeWarp(b, cols, rows, disp) {
+  const gw = cols + 3, gh = rows + 3;
+  const GX = new Float64Array(gw * gh), GY = new Float64Array(gw * gh);
+  const at = (i, j) => (j + 1) * gw + (i + 1);
+  for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) { const k = (j * (cols + 1) + i) * 2; GX[at(i, j)] = disp[k]; GY[at(i, j)] = disp[k + 1]; }
+  for (const G of [GX, GY]) {
+    for (let j = 0; j <= rows; j++) { G[at(-1, j)] = 2*G[at(0, j)] - G[at(1, j)]; G[at(cols + 1, j)] = 2*G[at(cols, j)] - G[at(cols - 1, j)]; }
+    for (let i = -1; i <= cols + 1; i++) { G[at(i, -1)] = 2*G[at(i, 0)] - G[at(i, 1)]; G[at(i, rows + 1)] = 2*G[at(i, rows)] - G[at(i, rows - 1)]; }
+  }
+  const bw = Math.max(b.w, 1e-6), bh = Math.max(b.h, 1e-6);
+  const wts = (t, w) => { const t2 = t*t, t3 = t2*t; w[0] = .5*(-t3 + 2*t2 - t); w[1] = .5*(3*t3 - 5*t2 + 2); w[2] = .5*(-3*t3 + 4*t2 + t); w[3] = .5*(t3 - t2); };
+  const wx = [0, 0, 0, 0], wy = [0, 0, 0, 0];
+  return (x, y) => {
+    const u = clamp((x - b.x) / bw, 0, 1), v = clamp((y - b.y) / bh, 0, 1);
+    const gx = u * cols, gy = v * rows;
+    const i0 = Math.min(Math.floor(gx), cols - 1), j0 = Math.min(Math.floor(gy), rows - 1);
+    wts(gx - i0, wx); wts(gy - j0, wy);
+    let dx = 0, dy = 0;
+    for (let m = 0; m < 4; m++) {
+      const base = (j0 + m) * gw + i0; let sx = 0, sy = 0;
+      for (let n = 0; n < 4; n++) { sx += wx[n] * GX[base + n]; sy += wx[n] * GY[base + n]; }
+      dx += wy[m] * sx; dy += wy[m] * sy;
+    }
+    return [x + dx, y + dy];
+  };
+}
+
+/* ---------- cubic helpers & path output ---------- */
+const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+function splitCubic(p0, p1, p2, p3, t) {
+  const a = lerp(p0, p1, t), b = lerp(p1, p2, t), c = lerp(p2, p3, t), d = lerp(a, b, t), e = lerp(b, c, t), g = lerp(d, e, t);
+  return [[p0, a, d, g], [g, e, c, p3]];
+}
+function subCubic(p0, p1, p2, p3, t0, t1) {
+  let s = [p0, p1, p2, p3];
+  if (t1 < 1) s = splitCubic(s[0], s[1], s[2], s[3], t1)[0];
+  if (t0 > 0) s = splitCubic(s[0], s[1], s[2], s[3], t0 / t1)[1];
+  return s;
+}
+
+function pathData(subs, warp, step, pm, bb) {
+  const F = (v) => String(Math.round(v * pm) / pm);
+  const P = (p) => F(p[0]) + ',' + F(p[1]);
+  let out = '';
+  for (const sub of subs) {
+    let p = sub.start;
+    const w0 = warp ? warp(p[0], p[1]) : p;
+    out += 'M' + P(w0); bb.add(w0);
+    for (const g of sub.segs) {
+      if (!warp) {
+        if (g.t === 'L') { out += 'L' + P(g.p); bb.add(g.p); }
+        else { out += 'C' + P(g.c1) + ' ' + P(g.c2) + ' ' + P(g.p); bb.add(g.c1); bb.add(g.c2); bb.add(g.p); }
+        p = g.p; continue;
+      }
+      const c1 = g.t === 'L' ? lerp(p, g.p, 1/3) : g.c1, c2 = g.t === 'L' ? lerp(p, g.p, 2/3) : g.c2;
+      const len = Math.hypot(c1[0]-p[0], c1[1]-p[1]) + Math.hypot(c2[0]-c1[0], c2[1]-c1[1]) + Math.hypot(g.p[0]-c2[0], g.p[1]-c2[1]);
+      const n = clamp(Math.ceil(len / step), 1, 240);
+      for (let k = 0; k < n; k++) {
+        const q = n === 1 ? [p, c1, c2, g.p] : subCubic(p, c1, c2, g.p, k / n, (k + 1) / n);
+        const a = warp(q[1][0], q[1][1]), b = warp(q[2][0], q[2][1]), e = warp(q[3][0], q[3][1]);
+        out += 'C' + P(a) + ' ' + P(b) + ' ' + P(e); bb.add(e);
+      }
+      p = g.p;
+    }
+    if (sub.closed) out += 'Z';
+  }
+  return out;
+}
+
+function buildOutput(warp, step) {
+  const maxDim = Math.max(state.vb.w, state.vb.h);
+  const pm = Math.pow(10, maxDim < 30 ? 4 : maxDim < 400 ? 3 : 2);
+  const F = (v) => String(Math.round(v * pm) / pm);
+  const bb = newBB(); let strokePad = 0, body = '', dyn = '';
+  // Warp clip paths and masks with the same function as the artwork.
+  const wbb = new Map();
+  for (const w of (state.wrappers || [])) {
+    const b = newBB(); let inner = '', sp = 0;
+    for (const part of w.parts) {
+      const d = pathData(part.subs, warp, step, pm, b); if (!d) continue;
+      inner += `<path d="${d}"${part.attrs}/>`; if (part.strokeHalf > sp) sp = part.strokeHalf;
+    }
+    if (isFinite(b.x0)) { b.x0 -= sp; b.y0 -= sp; b.x1 += sp; b.y1 += sp; }
+    wbb.set(w, b);
+    if (w.kind === 'clip') dyn += `<clipPath id="${w.id}" clipPathUnits="userSpaceOnUse">${inner}</clipPath>`;
+    else {
+      const ok = isFinite(b.x0), x = ok ? b.x0 : 0, y = ok ? b.y0 : 0, ww = ok ? b.x1 - b.x0 : 0, hh = ok ? b.y1 - b.y0 : 0;
+      dyn += `<mask id="${w.id}" maskUnits="userSpaceOnUse" x="${F(x)}" y="${F(y)}" width="${F(ww)}" height="${F(hh)}"${w.alpha ? ' style="mask-type:alpha"' : ''}>${inner}</mask>`;
+    }
+  }
+  let open = [];
+  for (const it of state.items) {
+    const ib = newBB();
+    const d = pathData(it.subs, it.warp ? warp : null, step, pm, ib);
+    if (!d) continue;
+    const chain = it.chain || [];
+    let k = 0; while (k < open.length && k < chain.length && open[k] === chain[k]) k++;
+    while (open.length > k) { body += '</g>'; open.pop(); }
+    for (; k < chain.length; k++) { const w = chain[k]; body += `<g ${w.kind === 'clip' ? 'clip-path' : 'mask'}="url(#${w.id})">`; open.push(w); }
+    body += `<path d="${d}"${it.attrs}/>`;
+    // Only the visible (clipped) area counts towards the export bounds.
+    let vis = { x0: ib.x0 - it.strokeHalf, y0: ib.y0 - it.strokeHalf, x1: ib.x1 + it.strokeHalf, y1: ib.y1 + it.strokeHalf };
+    for (const w of chain) { const b = wbb.get(w); vis = { x0: Math.max(vis.x0, b.x0), y0: Math.max(vis.y0, b.y0), x1: Math.min(vis.x1, b.x1), y1: Math.min(vis.y1, b.y1) }; }
+    if (vis.x1 > vis.x0 && vis.y1 > vis.y0) { bb.add([vis.x0, vis.y0]); bb.add([vis.x1, vis.y1]); }
+  }
+  while (open.length) { body += '</g>'; open.pop(); }
+  let r = state.vb;
+  if (state.exportFit === 'result' && isFinite(bb.x0)) {
+    const pad = maxDim * .003;
+    r = { x: bb.x0 - pad, y: bb.y0 - pad, w: bb.x1 - bb.x0 + 2 * pad, h: bb.y1 - bb.y0 + 2 * pad };
+  }
+  const svg = `<svg xmlns="${SVGNS}" viewBox="${F(r.x)} ${F(r.y)} ${F(r.w)} ${F(r.h)}" width="${F(r.w)}" height="${F(r.h)}">`
+    + ((state.defs || dyn) ? `<defs>${state.defs}${dyn}</defs>` : '') + body + '</svg>';
+  return { body, rect: r, svg, dyn };
+}
+
+/* ---------- stage ---------- */
+const stage = $('#stage'), artG = $('#art'), overlay = $('#overlay'), artDefs = $('#artDefs');
+const artboard = $('#artboard'), artLine = $('#artboardLine');
+const BG = { check: 'url(#chk)', light: '#ffffff', dark: '#171318' };
+
+function setupStageView() {
+  const v = state.vb, m = Math.max(v.w, v.h) * .28;
+  stage.setAttribute('viewBox', `${v.x - m} ${v.y - m} ${v.w + 2*m} ${v.h + 2*m}`);
+  const cell = Math.max(v.w, v.h) / 28;
+  const chk = $('#chk'); chk.setAttribute('width', cell * 2); chk.setAttribute('height', cell * 2);
+  $('#chkA').setAttribute('width', cell * 2); $('#chkA').setAttribute('height', cell * 2);
+  ['#chkB', '#chkC'].forEach((s) => { $(s).setAttribute('width', cell); $(s).setAttribute('height', cell); });
+  $('#chkC').setAttribute('x', cell); $('#chkC').setAttribute('y', cell);
+}
+
+function getBounds() {
+  const v = state.vb;
+  if (state.fit === 'artboard' || PRESETS[state.preset].custom) return { x: v.x, y: v.y, w: v.w, h: v.h };
+  const bb = newBB();
+  state.items.forEach((it) => { if (it.warp) { bb.add([it.bb.x0, it.bb.y0]); bb.add([it.bb.x1, it.bb.y1]); } });
+  if (!isFinite(bb.x0) || bb.x1 - bb.x0 < 1e-6 || bb.y1 - bb.y0 < 1e-6) return { x: v.x, y: v.y, w: v.w, h: v.h };
+  return { x: bb.x0, y: bb.y0, w: bb.x1 - bb.x0, h: bb.y1 - bb.y0 };
+}
+
+let raf = 0;
+const schedule = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(); }); };
+
+function makeCurrentWarp(bounds) {
+  const custom = !!PRESETS[state.preset].custom;
+  let w0;
+  if (custom) w0 = projector(bounds, state.rx, state.ry, state.rz, state.fov, state.corners);
+  else {
+    const base = computeBase(bounds), amt = state.amount / 100, disp = new Float64Array(base.length);
+    for (let k = 0; k < base.length; k++) disp[k] = base[k] * amt;
+    w0 = makeWarp(bounds, state.cols, state.rows, disp);
+  }
+  const cxc = bounds.x + bounds.w / 2, cf = custom ? 1 : 1 - state.compress * 0.003;
+  return cf === 1 ? w0 : (x, y) => { const p = w0(x, y); return [cxc + (p[0] - cxc) * cf, p[1]]; };
+}
+
+/* ---------- raster images (WebGL mesh) ---------- */
+const raster = $('#raster');
+const VS = 'attribute vec2 aPos;attribute vec2 aUV;uniform vec2 uRes;varying vec2 vUV;void main(){vec2 c=aPos/uRes*2.0-1.0;gl_Position=vec4(c.x,-c.y,0.0,1.0);vUV=aUV;}';
+const FS = 'precision mediump float;varying vec2 vUV;uniform sampler2D uTex;void main(){gl_FragColor=texture2D(uTex,vUV);}';
+const GN = 72;
+function getGL(canvas) {
+  if (canvas._gl) return canvas._gl;
+  const gl = canvas.getContext('webgl', { premultipliedAlpha: true, preserveDrawingBuffer: true, antialias: true, alpha: true });
+  if (!gl) return null;
+  const sh = (t, src) => { const o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o); return o; };
+  const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return null;
+  const idx = new Uint16Array(GN * GN * 6); let k = 0;
+  for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) {
+    const a = j * (GN + 1) + i, b = a + 1, c = a + GN + 1, d = c + 1;
+    idx.set([a, b, c, b, d, c], k); k += 6;
+  }
+  const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+  const vb = gl.createBuffer();
+  canvas._gl = { gl, pr, vb, ib, img: null, tex: null, count: idx.length };
+  return canvas._gl;
+}
+function drawRaster(canvas, warp, bounds, maxDim) {
+  const G = getGL(canvas); if (!G) return false;
+  const { gl } = G, n = GN + 1;
+  const v = new Float32Array(n * n * 4), bb = newBB();
+  for (let j = 0; j <= GN; j++) for (let i = 0; i <= GN; i++) {
+    const p = warp(bounds.x + bounds.w * i / GN, bounds.y + bounds.h * j / GN), o = (j * n + i) * 4;
+    v[o] = p[0]; v[o + 1] = p[1]; v[o + 2] = i / GN; v[o + 3] = j / GN; bb.add(p);
+  }
+  const bw = Math.max(1e-6, bb.x1 - bb.x0), bh = Math.max(1e-6, bb.y1 - bb.y0);
+  const sc = Math.min(1, maxDim / Math.max(bw, bh));
+  const W = Math.max(1, Math.round(bw * sc)), H = Math.max(1, Math.round(bh * sc));
+  if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+  for (let o = 0; o < v.length; o += 4) { v[o] = (v[o] - bb.x0) * sc; v[o + 1] = (v[o + 1] - bb.y0) * sc; }
+  if (G.img !== state.image) {
+    if (G.tex) gl.deleteTexture(G.tex);
+    G.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, G.tex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, state.image.src);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    G.img = state.image;
+  }
+  gl.viewport(0, 0, W, H); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.useProgram(G.pr);
+  gl.bindBuffer(gl.ARRAY_BUFFER, G.vb); gl.bufferData(gl.ARRAY_BUFFER, v, gl.DYNAMIC_DRAW);
+  const aPos = gl.getAttribLocation(G.pr, 'aPos'), aUV = gl.getAttribLocation(G.pr, 'aUV');
+  gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 16, 0);
+  gl.enableVertexAttribArray(aUV); gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 16, 8);
+  gl.uniform2f(gl.getUniformLocation(G.pr, 'uRes'), W, H);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, G.tex); gl.uniform1i(gl.getUniformLocation(G.pr, 'uTex'), 0);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, G.ib);
+  gl.drawElements(gl.TRIANGLES, G.count, gl.UNSIGNED_SHORT, 0);
+  return true;
+}
+function setMode(isImage) {
+  stage.style.display = isImage ? 'none' : '';
+  raster.hidden = !isImage;
+  $('#download').textContent = isImage ? 'Download PNG' : 'Download SVG';
+  $('#copy').hidden = isImage;
+  $('#download').style.gridColumn = isImage ? '1 / -1' : '';
+}
+function renderImage() {
+  setMode(true);
+  const im = state.image, bounds = { x: 0, y: 0, w: im.w, h: im.h };
+  const warp = makeCurrentWarp(bounds);
+  const ok = drawRaster(raster, warp, bounds, 1600);
+  state.rasterWarp = warp; state.rasterBounds = bounds; state.svgOut = '';
+  const st = $('#status'); st.innerHTML = '';
+  const add = (t, c) => { const e = document.createElement('span'); e.textContent = t; if (c) e.className = c; st.appendChild(e); };
+  add(`${im.w} × ${im.h} px image`);
+  if (!ok) add('This browser could not start WebGL, so images cannot be warped here.', 'warn');
+}
+
+function render() {
+  if (state.image) return renderImage();
+  if (!state.items.length) return;
+  setMode(false);
+  const bounds = getBounds();
+  let base = null, amt = 0, disp = null, base0 = null;
+  if (PRESETS[state.preset].custom) {
+    base0 = state.comparing ? null : projector(bounds, state.rx, state.ry, state.rz, state.fov, state.corners);
+  } else {
+    base = computeBase(bounds);
+    if (!state.manual || state.manual.length !== base.length) state.manual = new Float64Array(base.length);
+    amt = state.amount / 100;
+    disp = new Float64Array(base.length);
+    for (let k = 0; k < base.length; k++) disp[k] = base[k] * amt + state.manual[k];
+    base0 = state.comparing ? null : makeWarp(bounds, state.cols, state.rows, disp);
+  }
+  const cxc = bounds.x + bounds.w / 2, cf = PRESETS[state.preset].custom ? 1 : 1 - state.compress * 0.003;
+  const warp = base0 && (cf === 1 ? base0 : (x, y) => { const p = base0(x, y); return [cxc + (p[0] - cxc) * cf, p[1]]; });
+  const step = Math.max(bounds.w, bounds.h) / state.detail;
+  const out = buildOutput(warp, step);
+  state.svgOut = out.svg;
+  state.ctx = { bounds, base, amt, disp };
+
+  artDefs.innerHTML = state.defs + out.dyn;
+  artG.innerHTML = out.body;
+  const r = out.rect;
+  for (const el of [artboard, artLine]) { el.setAttribute('x', r.x); el.setAttribute('y', r.y); el.setAttribute('width', r.w); el.setAttribute('height', r.h); }
+  artboard.setAttribute('fill', BG[state.stageBg]);
+
+  drawOverlay(bounds, warp, disp);
+
+  const kb = (out.svg.length / 1024).toFixed(out.svg.length < 10240 ? 1 : 0);
+  const st = $('#status');
+  st.innerHTML = '';
+  const add = (txt, cls) => { const s = document.createElement('span'); s.textContent = txt; if (cls) s.className = cls; st.appendChild(s); };
+  add(`${state.items.length} shape${state.items.length === 1 ? '' : 's'} · ${kb} KB`);
+  state.notes.forEach((n) => add(n, 'warn'));
+}
+
+function drawOverlay(bounds, warp, disp) {
+  if (!state.showMesh || state.comparing || !warp) { overlay.innerHTML = ''; return; }
+  const { cols, rows } = state;
+  const m = stage.getScreenCTM(); const k = m && m.a ? 1 / m.a : 1;
+  const F = (v) => v.toFixed(2);
+  let rest = '', lines = '', dots = '';
+  const S = clamp(Math.max(cols, rows) * 8, 24, 160);
+  const line = (fn, count) => { let d = ''; for (let s = 0; s <= count; s++) { const p = fn(s / count); d += (s ? 'L' : 'M') + F(p[0]) + ',' + F(p[1]); } return d; };
+  for (let j = 0; j <= rows; j++) {
+    const y = bounds.y + bounds.h * j / rows;
+    rest += `<path class="rest" d="M${F(bounds.x)},${F(y)}L${F(bounds.x + bounds.w)},${F(y)}"/>`;
+    lines += `<path class="ln" d="${line((t) => warp(bounds.x + bounds.w * t, y), S)}"/>`;
+  }
+  for (let i = 0; i <= cols; i++) {
+    const x = bounds.x + bounds.w * i / cols;
+    rest += `<path class="rest" d="M${F(x)},${F(bounds.y)}L${F(x)},${F(bounds.y + bounds.h)}"/>`;
+    lines += `<path class="ln" d="${line((t) => warp(x, bounds.y + bounds.h * t), S)}"/>`;
+  }
+  const rad = 6 * k;
+  for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) {
+    const n = j * (cols + 1) + i;
+    const x = bounds.x + bounds.w * i / cols + disp[n * 2], y = bounds.y + bounds.h * j / rows + disp[n * 2 + 1];
+    const moved = state.manual[n * 2] || state.manual[n * 2 + 1];
+    dots += `<circle class="h${moved ? ' m' : ''}" data-n="${n}" cx="${F(x)}" cy="${F(y)}" r="${F(rad)}"/>`;
+  }
+  overlay.innerHTML = rest + lines + dots;
+}
+
+/* ---------- dragging mesh points ---------- */
+let drag = null;
+function toSvg(e) {
+  const pt = stage.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  return pt.matrixTransform(stage.getScreenCTM().inverse());
+}
+overlay.addEventListener('pointerdown', (e) => {
+  const n = e.target && e.target.dataset ? e.target.dataset.n : undefined;
+  if (n === undefined) return;
+  e.preventDefault(); drag = { n: +n };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp, { once: true });
+  window.addEventListener('pointercancel', onUp, { once: true });
+});
+function onMove(e) {
+  if (!drag || !state.ctx) return;
+  const { bounds, base, amt } = state.ctx, { cols, rows } = state, n = drag.n;
+  const i = n % (cols + 1), j = Math.floor(n / (cols + 1));
+  const p = toSvg(e);
+  state.manual[n * 2] = p.x - (bounds.x + bounds.w * i / cols) - base[n * 2] * amt;
+  state.manual[n * 2 + 1] = p.y - (bounds.y + bounds.h * j / rows) - base[n * 2 + 1] * amt;
+  schedule();
+}
+function onUp() { drag = null; window.removeEventListener('pointermove', onMove); }
+
+/* ---------- controls ---------- */
+function paintRange(el) { el.style.setProperty('--fill', ((el.value - el.min) / (el.max - el.min) * 100) + '%'); }
+function bindRange(id, key, fmt, onChange) {
+  const el = $('#' + id), out = $('#' + id + 'O');
+  const sync = () => { out.textContent = fmt(+el.value); paintRange(el); };
+  el.addEventListener('input', () => { state[key] = +el.value; sync(); if (onChange) onChange(); schedule(); });
+  el._sync = () => { el.value = state[key]; sync(); };
+  el._sync();
+}
+const resetManual = () => { state.manual = null; };
+bindRange('amount', 'amount', (v) => v + '%');
+bindRange('depth', 'depth', (v) => String(v));
+bindRange('compress', 'compress', (v) => v + '%');
+bindRange('rx', 'rx', (v) => v + '°');
+bindRange('ry', 'ry', (v) => v + '°');
+bindRange('rz', 'rz', (v) => v + '°');
+bindRange('fov', 'fov', (v) => v + '°');
+(() => {
+  const names = ['Top left', 'Top right', 'Bottom right', 'Bottom left'], sign = [-1, 1, 1, -1];
+  const box = $('#corners');
+  box.innerHTML = '<h3 class="sub">Corners</h3>' + names.map((n, k) => `
+    <div class="ctl"><label for="c${k}">${n} <output id="c${k}O">0%</output></label><input type="range" id="c${k}" min="0" max="50" step="1" value="0"></div>`).join('')
+    + '<div class="row"><button class="btn" id="resetCorners">Reset Corners</button></div>';
+  for (let k = 0; k < 4; k++) {
+    const el = $('#c' + k), out = $('#c' + k + 'O');
+    const sync = () => { out.textContent = el.value + '%'; paintRange(el); };
+    el.addEventListener('input', () => { state.corners[2 * k] = sign[k] * +el.value; sync(); schedule(); });
+    el._sync = () => { el.value = Math.abs(state.corners[2 * k]); sync(); }; el._sync();
+  }
+  $('#resetPersp').addEventListener('click', () => {
+    Object.assign(state, { rx: 0, ry: 0, rz: 0, fov: 60 });
+    ['rx', 'ry', 'rz', 'fov'].forEach((id) => $('#' + id)._sync()); schedule();
+  });
+  $('#resetCorners').addEventListener('click', () => { state.corners = [0, 0, 0, 0, 0, 0, 0, 0]; for (let k = 0; k < 4; k++) $('#c' + k)._sync(); schedule(); });
+})();
+
+function applyPreset(key) {
+  state.preset = key;
+  const P = PRESETS[key];
+  state.cols = P.cols; state.rows = P.rows; state.manual = null;
+  $('#presetNote').hidden = key !== 'hourglass';
+  $('#grpCompress').hidden = !!P.custom; $('#grpMesh').hidden = !!P.custom; $('#grpPersp').hidden = !P.custom;
+  document.querySelectorAll('.preset').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.key === key)));
+  schedule();
+}
+
+function thumb(key) {
+  const W = 60, H = 40, c = 8, r = 6, P = PRESETS[key], pts = [];
+  const bb = newBB();
+  for (let j = 0; j <= r; j++) { pts.push([]); for (let i = 0; i <= c; i++) {
+    const U = i / c, V = j / r, d = P.f(U, V, W, H, { seed: 4, i, j, depth: -.1 });
+    const p = [U * W + d[0], V * H + d[1]]; pts[j].push(p); bb.add(p);
+  } }
+  const sw = bb.x1 - bb.x0 || 1, sh = bb.y1 - bb.y0 || 1, s = Math.min(54 / sw, 28 / sh);
+  const ox = 30 - (bb.x0 + sw / 2) * s, oy = 20 - (bb.y0 + sh / 2) * s;
+  const q = (p) => ((p[0] * s + ox).toFixed(1) + ',' + (p[1] * s + oy).toFixed(1));
+  let d = '';
+  for (let j = 0; j <= r; j++) d += 'M' + pts[j].map(q).join('L');
+  for (let i = 0; i <= c; i++) d += 'M' + pts.map((row) => q(row[i])).join('L');
+  return `<svg viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"><path d="${d}"/></svg>`;
+}
+const presetsEl = $('#presets');
+Object.keys(PRESETS).forEach((key) => {
+  const b = document.createElement('button');
+  b.className = 'preset'; b.dataset.key = key; b.setAttribute('aria-pressed', String(key === state.preset));
+  b.innerHTML = thumb(key) + `<span>${PRESETS[key].label}</span>`;
+  b.addEventListener('click', () => applyPreset(key));
+  presetsEl.appendChild(b);
+});
+
+/* ---------- reset to defaults on new artwork ---------- */
+const DEFAULTS = { preset: 'hourglass', amount: 0, depth: 0, compress: 0, rx: 0, ry: 0, rz: 0, fov: 60 };
+function resetSettings() {
+  Object.assign(state, { amount: DEFAULTS.amount, depth: DEFAULTS.depth, compress: DEFAULTS.compress,
+    rx: DEFAULTS.rx, ry: DEFAULTS.ry, rz: DEFAULTS.rz, fov: DEFAULTS.fov, corners: [0, 0, 0, 0, 0, 0, 0, 0], manual: null });
+  ['amount', 'depth', 'compress', 'rx', 'ry', 'rz', 'fov', 'c0', 'c1', 'c2', 'c3'].forEach((id) => { const el = $('#' + id); if (el && el._sync) el._sync(); });
+  applyPreset(DEFAULTS.preset);
+}
+
+/* ---------- file input ---------- */
+const toast = (t) => { $('#toast').textContent = t; clearTimeout(toast._t); toast._t = setTimeout(() => { $('#toast').textContent = ''; }, 4000); };
+function tryLoad(text, name) {
+  try { loadSvgText(text, name); resetSettings(); toast(''); }
+  catch (err) { toast(err.message || 'Could not read that SVG.'); }
+}
+function loadImageFile(file) {
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = () => {
+    let src = img, w = img.naturalWidth, h = img.naturalHeight;
+    const cap = 4096;
+    if (Math.max(w, h) > cap) {
+      const k = cap / Math.max(w, h), c = document.createElement('canvas');
+      c.width = Math.round(w * k); c.height = Math.round(h * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); src = c; w = c.width; h = c.height;
+    }
+    state.image = { src, w, h }; state.items = []; state.notes = []; state.defs = '';
+    state.fileName = file.name.replace(/\.[^.]+$/, ''); state.manual = null;
+    resetSettings(); toast(''); render();
+    URL.revokeObjectURL(url);
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); toast('Could not read that image.'); };
+  img.src = url;
+}
+function readFile(file) {
+  if (!file) return;
+  if (!(/svg/i.test(file.type) || /\.svg$/i.test(file.name))) { toast('Only SVG files are supported.'); return; }
+  const r = new FileReader();
+  r.onload = () => tryLoad(String(r.result), file.name);
+  r.onerror = () => toast('Could not read that file.');
+  r.readAsText(file);
+}
+$('#pick').addEventListener('click', () => $('#file').click());
+$('#file').addEventListener('change', (e) => { readFile(e.target.files[0]); e.target.value = ''; });
+
+const veil = $('#veil'); let dragDepth = 0;
+window.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; veil.classList.add('on'); });
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) veil.classList.remove('on'); });
+window.addEventListener('drop', (e) => {
+  e.preventDefault(); dragDepth = 0; veil.classList.remove('on');
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) readFile(f);
+});
+
+/* ---------- export ---------- */
+let dlCap = null;
+(async () => { try { if (window.claude && window.claude.use) dlCap = await window.claude.use('downloads'); } catch (e) { dlCap = null; } })();
+
+async function savePng() {
+  const c = document.createElement('canvas');
+  if (!drawRaster(c, state.rasterWarp, state.rasterBounds, 4096)) { toast('Could not render the image here.'); return; }
+  const blob = await new Promise((res) => c.toBlob(res, 'image/png'));
+  const lose = c._gl && c._gl.gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext();
+  if (!blob) { toast('Could not create the PNG.'); return; }
+  const filename = `${state.fileName}-warped.png`;
+  if (dlCap) {
+    try { await dlCap.save({ filename, data: blob }); toast('Saved ' + filename); return; }
+    catch (err) { if (err && err.code === 'declined') return; }
+  }
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000); toast('Downloading ' + filename);
+  } catch (e) { toast('Download is blocked here.'); }
+}
+$('#download').addEventListener('click', async () => {
+  if (state.image) { savePng(); return; }
+  if (!state.svgOut) return;
+  const filename = `${state.fileName}-warped.svg`;
+  if (dlCap) {
+    try { await dlCap.save({ filename, data: state.svgOut }); toast('Saved ' + filename); return; }
+    catch (err) { if (err && err.code === 'declined') return; }
+  }
+  try {
+    const url = URL.createObjectURL(new Blob([state.svgOut], { type: 'image/svg+xml' }));
+    const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000); toast('Downloading ' + filename);
+  } catch (e) { toast('Download is blocked here. Use Copy SVG Code instead.'); }
+});
+$('#copy').addEventListener('click', async () => {
+  if (!state.svgOut) return;
+  try { await navigator.clipboard.writeText(state.svgOut); toast('SVG code copied.'); return; } catch (e) { /* fall through */ }
+  const ta = document.createElement('textarea'); ta.value = state.svgOut; ta.style.cssText = 'position:fixed;left:-9999px';
+  document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  ta.remove(); toast(ok ? 'SVG code copied.' : 'Copy is blocked here. Use Download SVG instead.');
+});
+
+new ResizeObserver(() => schedule()).observe($('#stageWrap'));
+
+/* ---------- go ---------- */
+applyPreset('hourglass');
+})();
+</script>
+</body>
+</html>
